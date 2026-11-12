@@ -1,0 +1,5 @@
+package-as: Prat3.0-DibsTweaks
+
+ignore:
+  - NOTES.md
+  - README.md

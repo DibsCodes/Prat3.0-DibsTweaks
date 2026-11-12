@@ -1,0 +1,12 @@
+## Interface: 16001
+## Title: Prat |cff8080ff3.0|r Dibs Tweaks
+## Notes: Prat modules: Dibs reverse chat (newest messages at the top) and Dibs animated chat (animated chat messages).
+## Version: @project-version@
+## Author: DibsCodes
+## Dependencies: Prat-3.0
+## X-License: GPLv3
+## Category-enUS: Chat
+
+Settings.lua
+ReverseChat.lua
+AnimatedChat.lua
