@@ -50,3 +50,26 @@ function ns.MoveModuleSettings(oldName, newName)
 		end
 	end
 end
+
+-- Clears a module's saved settings, in every profile, once per "version": for when a
+-- module now does something different, so that it starts from its defaults again (on/off
+-- included: Prat reads the module's state from these settings). The version is kept in
+-- the module's settings namespace, which AceDB saves as long as it is not empty.
+-- Must run before the module registers its namespace in OnInitialize.
+function ns.ResetModuleSettings(name, version)
+	local sv = Prat and Prat.db and Prat.db.sv
+	if type(sv) ~= "table" then
+		return
+	end
+	sv.namespaces = sv.namespaces or {}
+	local key = "Prat_" .. name
+	local namespace = sv.namespaces[key]
+	if type(namespace) ~= "table" then
+		namespace = {}
+		sv.namespaces[key] = namespace
+	end
+	if (tonumber(namespace.dibsSettingsVersion) or 0) < version then
+		namespace.profiles = nil
+		namespace.dibsSettingsVersion = version
+	end
+end

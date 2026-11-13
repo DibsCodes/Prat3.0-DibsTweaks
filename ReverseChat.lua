@@ -39,6 +39,9 @@ PRAT_L[MODULE .. "/windows_desc"] = "Choose which chat windows keep their text a
 
 Prat:AddModuleToLoad(function()
 	ns.MoveModuleSettings("ReverseChat", MODULE)
+	-- Version 2: this module used to put the newest message on top. Settings saved for that
+	-- (including "on") do not apply to keep-at-top, so it starts off again, once.
+	ns.ResetModuleSettings(MODULE, 2)
 	local module = Prat:NewModule(MODULE)
 	ns.top = module
 	local PL = module.PL

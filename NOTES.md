@@ -69,6 +69,11 @@ or `db.sv`.
 - 2026-11-12: the newest-on-top reversal was removed. Its per-window choices (`frames`) are
   not reused; keep-at-top uses a new `windows` option. The old `top` option of Dibs animated
   chat is no longer read.
+- Defaults (user, 2026-11-12): Dibs animated chat on, Dibs reverse chat off. Settings saved
+  for the old reversal (including "on") made reverse chat start on, so `ReverseChat.lua`
+  calls `ns.ResetModuleSettings(MODULE, 2)`: once, it clears the module's saved settings in
+  every profile and stores `dibsSettingsVersion = 2` in its namespace. Later choices are
+  kept. Raise the version only when the module's meaning changes again.
 
 ## Results
 
@@ -90,6 +95,18 @@ Passed:
 - Both on, new message: appears under the text at the top; older text does not move.
 - Reverse chat off with animation on: text glides back to the bottom. Both off: plain chat.
 - Fade-in completes in real time (alpha 1 after 0.5 s).
+- No Lua errors.
+
+### Simulator, defaults and one-time reset (same flavor, 2026-11-12)
+Real `Settings.lua` and `ReverseChat.lua`, a stand-in `Engine.lua` (`ns.Refresh` does
+nothing) and a minimal animated module, with Prat 3.0 from the catalog.
+
+Passed:
+- Fresh install: reverse chat off, animated chat on, `dibsSettingsVersion` 2 recorded.
+- Old settings planted (reverse chat on, no version), then `/reload`: reverse chat off,
+  saved "on" and old `frames` cleared, Module Control shows it disabled, animated chat on.
+- Reverse chat then turned on and ChatFrame3 unticked, then `/reload`: both choices kept
+  (no second reset).
 - No Lua errors.
 
 ### Earlier simulator results (before the split, 2026-11-07 to 2026-11-12)
