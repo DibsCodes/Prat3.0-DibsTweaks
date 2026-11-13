@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Prat |cff8080ff3.0|r Dibs Tweaks
-## Notes: Prat modules: Dibs reverse chat (newest messages at the top) and Dibs animated chat (animated chat messages).
+## Notes: Prat modules: Dibs reverse chat (keep chat text at the top of chosen windows) and Dibs animated chat (slide and fade-in animation).
 ## Version: @project-version@
 ## Author: DibsCodes
 ## Dependencies: Prat-3.0
@@ -9,5 +9,6 @@
 ## IconTexture: Interface\AddOns\Prat3.0-DibsTweaks\logo
 
 Settings.lua
+Engine.lua
 ReverseChat.lua
 AnimatedChat.lua

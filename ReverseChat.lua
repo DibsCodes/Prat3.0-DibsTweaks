@@ -17,46 +17,38 @@
 -- program (see LICENSE). If not, see <https://www.gnu.org/licenses/>.
 -------------------------------------------------------------------------------
 
--- Prat3.0-DibsTweaks, module "Dibs reverse chat": shows the newest chat messages at the top
--- of the window, using the native top insert mode of ScrollingMessageFrame. It needs no
--- changes to Prat's own files.
---
--- Target: Forever. Checked against Gethe/wow-ui-source forever branch, commit
--- 9dc84f0d3bbae1768ac3405b3716000bd93eda06 (1.60.1.70862):
---   Blizzard_SharedXML/ScrollingMessageFrame.lua: top mode draws the newest entry on
---     the top line. Scroll offset 0 is still the newest message, so "AtBottom" and
---     "ScrollToBottom" mean "at the newest message" in this mode.
---   Blizzard_SharedXML/Shared/Scroll/ScrollUtil.lua: the scroll bar and Blizzard's
---     mouse wheel handler already account for top mode. Prat's Scroll module replaces
---     that wheel handler, so the extension at the end of this file adds the same check.
+-- Prat3.0-DibsTweaks, module "Dibs reverse chat": in the chosen chat windows, text hangs
+-- from the top of the window. The first message appears on the top line and later ones go
+-- under it; when the oldest message has faded out, the others move up. The work is done
+-- in Engine.lua.
 
 local _, ns = ...
 
-if not (Prat and Prat.AddModuleToLoad and Prat.AddModuleExtension and Prat.Addon and PRAT_L) then
+if not (Prat and Prat.AddModuleToLoad and PRAT_L and ns.Refresh) then
 	return
 end
-
-local INSERT_TOP = SCROLLING_MESSAGE_FRAME_INSERT_MODE_TOP
-local INSERT_BOTTOM = SCROLLING_MESSAGE_FRAME_INSERT_MODE_BOTTOM
 
 -- Also the name shown in Prat's Module Control.
 local MODULE = "Dibs reverse chat"
 
 -- Prat reads module text from PRAT_L and raises an error for any missing key.
 PRAT_L[MODULE .. "/module_name"] = "Dibs reverse chat"
-PRAT_L[MODULE .. "/module_desc"] = "Shows the newest chat messages at the top of the chat window."
-PRAT_L[MODULE .. "/frames_name"] = "Reverse Windows"
-PRAT_L[MODULE .. "/frames_desc"] = "Choose which chat windows show their newest messages at the top."
+PRAT_L[MODULE .. "/module_desc"] = "Keeps chat text at the top of the window: messages start on the top line and stack downward, and when the oldest has faded out the others move up."
+PRAT_L[MODULE .. "/windows_name"] = "Keep Text At The Top"
+PRAT_L[MODULE .. "/windows_desc"] = "Choose which chat windows keep their text at the top."
 
 Prat:AddModuleToLoad(function()
 	ns.MoveModuleSettings("ReverseChat", MODULE)
 	local module = Prat:NewModule(MODULE)
+	ns.top = module
 	local PL = module.PL
 
+	-- "windows" is new: the earlier "frames" option chose windows for a different feature
+	-- (newest message on top), so those choices are not reused.
 	Prat:SetModuleDefaults(module.name, {
 		profile = {
 			on = false,
-			frames = { ["*"] = true },
+			windows = { ["*"] = true },
 		}
 	})
 
@@ -65,14 +57,15 @@ Prat:AddModuleToLoad(function()
 		desc = PL.module_desc,
 		type = "group",
 		args = {
-			frames = {
-				name = PL.frames_name,
-				desc = PL.frames_desc,
+			windows = {
+				name = PL.windows_name,
+				desc = PL.windows_desc,
 				type = "multiselect",
 				order = 110,
 				values = function()
 					local frames = {}
 					for name, title in pairs(Prat.HookedFrameList) do
+						-- The combat log is never changed.
 						if name ~= "ChatFrame2" then
 							frames[name] = title
 						end
@@ -85,101 +78,20 @@ Prat:AddModuleToLoad(function()
 		}
 	})
 
-	-- The jump button stays in its corner, but the newest message is now up, not down.
-	local function SetJumpButtonFlipped(chatFrame, flipped)
-		local button = chatFrame.ScrollToBottomButton
-		if not button then
-			return
-		end
-
-		local rotation = flipped and math.pi or 0
-		button:GetNormalTexture():SetRotation(rotation)
-		button:GetPushedTexture():SetRotation(rotation)
-		button:GetHighlightTexture():SetRotation(rotation)
-		button:GetDisabledTexture():SetRotation(rotation)
-		button.Flash:SetRotation(rotation)
-	end
-
-	local function SetReversed(chatFrame, reversed)
-		local insertMode = reversed and INSERT_TOP or INSERT_BOTTOM
-		if chatFrame:GetInsertMode() ~= insertMode then
-			chatFrame:SetInsertMode(insertMode)
-			SetJumpButtonFlipped(chatFrame, reversed)
-		end
-	end
-
-	--[[------------------------------------------------
-		Module Event Functions
-	------------------------------------------------]] --
-
 	function module:OnModuleEnable()
-		self:ConfigureAllFrames()
+		ns.Refresh()
 		Prat.RegisterChatEvent(self, Prat.Events.FRAMES_UPDATED)
-		Prat.RegisterChatEvent(self, Prat.Events.FRAMES_REMOVED)
 	end
 
 	function module:OnModuleDisable()
-		for _, chatFrame in pairs(Prat.HookedFrames) do
-			SetReversed(chatFrame, false)
-		end
+		ns.Refresh()
 	end
 
 	function module:OnSubValueChanged()
-		self:ConfigureAllFrames()
+		ns.Refresh()
 	end
 
 	function module:Prat_FramesUpdated()
-		self:ConfigureAllFrames()
-	end
-
-	-- Blizzard reuses closed temporary windows, so don't leave one reversed.
-	function module:Prat_FramesRemoved(_, _, chatFrame)
-		SetReversed(chatFrame, false)
-	end
-
-	--[[------------------------------------------------
-		Core Functions
-	------------------------------------------------]] --
-
-	-- The combat log (always ChatFrame2) keeps its normal order. HookedFrames can include it,
-	-- because IsCombatLog() returns false until Blizzard_CombatLog has loaded.
-	function module:ConfigureAllFrames()
-		for name, chatFrame in pairs(Prat.HookedFrames) do
-			SetReversed(chatFrame, chatFrame ~= ChatFrame2 and self.db.profile.frames[name])
-		end
+		ns.Refresh()
 	end
 end) -- Prat:AddModuleToLoad
-
--- Prat's Scroll module installs a wheel handler that treats "wheel up" as "older". In top
--- insert mode older messages are below, so flip the wheel as Blizzard's own handler does.
--- This checks the frame's mode on each wheel turn, so it is correct whether or not Reverse
--- Chat is enabled. If a future Prat adds this flip itself, the wheel would be flipped twice.
-Prat:AddModuleExtension(function()
-	local scroll = Prat.Addon:GetModule("Scroll", true)
-	if not (scroll and scroll.MouseWheel) then
-		return
-	end
-
-	hooksecurefunc(scroll, "MouseWheel", function(_, chatFrame, enabled)
-		local handler = enabled and chatFrame:GetScript("OnMouseWheel")
-		if not handler then
-			return
-		end
-
-		chatFrame:SetScript("OnMouseWheel", function(frame, delta, ...)
-			if frame:GetInsertMode() == INSERT_TOP then
-				delta = -delta
-			end
-			return handler(frame, delta, ...)
-		end)
-	end)
-
-	-- Scroll may have set its handlers before this hook existed; set them again.
-	if scroll.db and scroll:IsEnabled() then
-		for name, chatFrame in pairs(Prat.Frames) do
-			if scroll.db.profile.mousewheel[name] then
-				scroll:MouseWheel(chatFrame, true)
-			end
-		end
-	end
-end) -- Prat:AddModuleExtension

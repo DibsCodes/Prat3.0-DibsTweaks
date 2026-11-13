@@ -8,11 +8,14 @@ add-on, for **WoW Forever**.
 ## Modules
 
 ### Dibs reverse chat
-Shows the newest chat messages at the top of the chat window instead of the bottom.
+Keeps chat text at the top of the window instead of the bottom.
 
-- Choose which chat windows are reversed ("Reverse Windows").
-- The combat log is never reversed.
-- The mouse wheel scrolls toward older messages, as you would expect.
+- In a quiet chat window the first message appears on the top line and later ones go under
+  it. When the oldest message has faded out, the others move up into its place.
+- Once the window is full, chat scrolls as usual.
+- Scrolling back stops at the oldest message instead of pushing text out of the window.
+- Choose which chat windows do this ("Keep Text At The Top"). The combat log is never
+  changed.
 
 Off by default. Turn it on in Prat's options under **Module Control**.
 
@@ -21,15 +24,10 @@ Animates chat windows so they feel smoother.
 
 - When a new message arrives, the older messages slide out of the way and the new one fades
   in. The animation is short (0.15 seconds by default).
-- **Keep Text At The Top:** in an empty window the first message appears on the top line and
-  later ones go under it. When the oldest message has faded out, the others move up. Once the
-  window is full, chat scrolls as usual.
-- Scrolling back stops at the oldest message instead of pushing text out of the window.
 
-On by default. Options: Animation Time, Slide Old Messages, Fade In New Messages, Keep Text
-At The Top.
+On by default. Options: Animation Time, Slide Old Messages, Fade In New Messages.
 
-Both modules can be used together.
+Both modules can be used together: with both on, text kept at the top also slides into place.
 
 ## Requirements
 
