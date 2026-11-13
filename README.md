@@ -1,3 +1,5 @@
+<p align="center"><img src="media/logo.png" alt="DibsTweaks logo" width="256"></p>
+
 # Prat3.0-DibsTweaks
 
 Two extra modules for the [Prat 3.0](https://www.curseforge.com/wow/addons/prat-3-0) chat

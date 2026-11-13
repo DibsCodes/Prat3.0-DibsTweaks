@@ -6,6 +6,7 @@
 ## Dependencies: Prat-3.0
 ## X-License: GPLv3
 ## Category-enUS: Chat
+## IconTexture: Interface\AddOns\Prat3.0-DibsTweaks\logo
 
 Settings.lua
 ReverseChat.lua

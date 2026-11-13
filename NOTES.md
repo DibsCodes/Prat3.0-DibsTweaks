@@ -11,6 +11,10 @@ not load without it, and edits no Prat files.
   (`.pkgmeta`; `NOTES.md` and `README.md` are left out of the package). The TOC version is
   `@project-version@`, which the packager replaces with the git tag; a local copy shows the
   placeholder as is.
+- Logo: `media/logo.png` (512 px, for the README and CurseForge; left out of the package)
+  and `logo.tga` (64 px, uncompressed 32-bit with alpha) for `## IconTexture`. Forever's
+  add-on list reads `IconTexture` and draws it at 20x20 before the title
+  (Blizzard_AddOnList/AddonList.lua at the source pin).
 
 | Module (name in Extras and Module Control) | File | Default |
 |---|---|---|
