@@ -34,6 +34,7 @@ not load without it, and edits no Prat files.
 | R5 | Text hangs from the top of the window; when the oldest message has faded out, the others move up (user's wording, 2026-11-09) | Engine `GetLift` |
 | R6 | Scrolling back cannot push messages out of the window (2026-11-09) | Engine `LimitScroll`, `OnScrollOffsetSet` |
 | R7 | "Dibs reverse chat" is only the keep-at-top feature, chosen per chat window (2026-11-12, replaces the earlier newest-on-top reversal) | `ReverseChat.lua` option `windows` |
+| R8 | Inside instances (secret chat messages): fade-in still runs; the slide moves by one line of text; keep-at-top pauses (text at the bottom) while secret messages show and resumes by itself once they have faded out (user's choices, 2026-11-24) | Engine `GetOneLineStep`, `GetRoom` "paused" |
 
 ## Structure
 
@@ -49,6 +50,15 @@ off, its options change, or Prat's chat windows change.
   messages that arrived while a tab was hidden. A burst of messages adds to the running
   slide, capped at the window height. A restricted (secret) text height shows that message
   without animation.
+- Secret messages (R8): in an instance every `CHAT_MSG_*` event is
+  `SecretInChatMessagingLockdown`, so a line showing such a message has a secret
+  `GetStringHeight`, and so do the older lines anchored to it (`SecretWhenAnchoringSecret`;
+  `GetNumLines`, `IsTruncated` and the width getters too). `GetLineHeight` is font-only and
+  usable. Nothing tells how many lines a secret message wraps to, so: the slide uses one
+  line height; keep-at-top cannot measure the text and pauses rather than guess (a guess
+  too small would push the newest line below the window edge). Before 2026-11-24 a secret
+  height made the engine show the message plainly, so both modules looked dead in
+  dungeons (reported by the user: no Lua errors; fixed only by leaving and `/reload`).
 - Keep-at-top and the scroll limit are off in top insert mode, where the text already starts
   at the top.
 - Hooks: `AddOnDisplayRefreshedCallback`, `hooksecurefunc` on the chat frame's `OnPostUpdate`
@@ -116,14 +126,26 @@ Passed:
 - Scroll limit: stops at the oldest message, page up, tall messages, few messages.
 - Packaging: module names in Extras and Module Control, settings moved from the old names.
 
+### Offline test, secret lines (2026-11-24)
+`tests/secret_test.lua` (lua5.1, stand-ins for the chat frame; a stand-in secret value
+raises an error on any arithmetic or comparison). 13 checks: keep-at-top normally; a
+secret message fades in from alpha 0; older text starts where it was and glides to the
+bottom (paused); further secret messages, wrapped ones included, slide in from one line
+below; still paused after a normal message while secret ones show; keep-at-top resumes
+once they have faded out; animation-only mode with a secret message. All passed. The
+v1.0.0-beta1 engine fails 7 of them (no fade, no slide), matching the user's report.
+The UIForever simulator cannot produce secret values, so it was not used for this round.
+
 ### In-game
 - Separate add-ons: slide and fade-in reported "works perfectly" in the live client.
 - Package: the user tested it in game on 2026-11-12, which led to the module split (R7).
-- Module split: not run in game yet.
+- Module split (v1.0.0-beta1): the user reported both modules "working perfectly" in the
+  open world (2026-11-24), and both silently stopping inside a dungeon (cause: R8).
 
 Open items:
-- [ ] Module split loads with no Lua errors; keep-at-top works per window with and without
-      Dibs animated chat.
+- [ ] R8 in a dungeon: fade-in and one-line slide for party chat; text sits at the bottom
+      while instance messages show; back at the top after they fade out (no `/reload`);
+      no Lua errors.
 - [ ] A new message arriving while scrolled to the very top. In the simulator the scroll
       position went from 17 back to 16 without the lines being redrawn. Not diagnosed.
 - [ ] Messages that arrived in a hidden tab do not animate when the tab is shown.

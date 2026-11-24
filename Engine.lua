@@ -36,6 +36,14 @@
 --   Blizzard_SharedXML/ScrollingMessageFrame.xml: the lines live in a container with
 --     clipChildren, so a line pushed past the frame edge is cut off, not drawn outside.
 --     The frame's own update (OnPostUpdate) runs after any OnUpdate script.
+--   Inside an instance, chat messages are secret (ChatInfoDocumentation.lua: every
+--     CHAT_MSG_* event is SecretInChatMessagingLockdown). RefreshDisplay sets each
+--     message as the line's text, so a line showing a secret message has a secret
+--     GetStringHeight (SecretWhenAnchoringSecret), and so do the older lines anchored
+--     to it. GetLineHeight depends only on the font and is not secret. Then: the fade
+--     still runs, the slide moves by one line of text, and keep-at-top pauses (text at
+--     the bottom) until those messages have faded out. Checked against
+--     Gethe/wow-ui-source forever 734f065329cff4992835b01a84f210a297db91b6 (1.60.1.71037).
 
 local _, ns = ...
 
@@ -87,14 +95,31 @@ end
 	Lines
 ------------------------------------------------]] --
 
+-- Never do arithmetic on a restricted (secret) value.
+local function IsUsable(value)
+	return type(value) == "number" and not (issecretvalue and issecretvalue(value))
+end
+
 -- The room a line takes up in the chain, or nil if the client restricts the value.
+-- Inside an instance, chat messages are secret (Forever: every CHAT_MSG_* event is
+-- SecretInChatMessagingLockdown). A line showing one has a secret text height, and so
+-- does every older line, because the secret anchoring passes down the chain.
 local function GetLineStep(line)
-	local height = line:GetStringHeight()
-	-- Never do arithmetic on a restricted value.
-	if type(height) ~= "number" or (issecretvalue and issecretvalue(height)) then
+	local height, spacing = line:GetStringHeight(), line:GetSpacing()
+	if not (IsUsable(height) and IsUsable(spacing)) then
 		return nil
 	end
-	return height + line:GetSpacing()
+	return height + spacing
+end
+
+-- The room one line of text takes up. It depends only on the font, so it stays usable
+-- for a secret message, but a message that wraps takes up more than this.
+local function GetOneLineStep(line)
+	local height, spacing = line:GetLineHeight(), line:GetSpacing()
+	if not (IsUsable(height) and IsUsable(spacing)) then
+		return nil
+	end
+	return height + spacing
 end
 
 local function SetLineOffset(frame, line, offset)
@@ -121,7 +146,10 @@ end
 -- The empty room above the messages that are showing (negative if they do not all fit),
 -- and how many are showing. A message counts until the chat frame's fade timer has
 -- faded it out completely; with "ignoreFade" every message counts. Returns nil if the
--- text is not kept at the top, or if the client restricts the text height.
+-- text is not kept at the top. Returns nil, nil, true ("paused") if a message that counts
+-- has a secret height: its size cannot be known, so the text is left at the bottom,
+-- where nothing can be cut off. Once such messages have faded out or the text fills the
+-- window without them, the text is kept at the top again.
 local function GetRoom(frame, now, ignoreFade)
 	if not CanLift(frame) then
 		return nil
@@ -139,7 +167,7 @@ local function GetRoom(frame, now, ignoreFade)
 		end
 		local step = GetLineStep(line)
 		if not step then
-			return nil
+			return nil, nil, true
 		end
 		room = room - step
 		shown = i
@@ -151,13 +179,13 @@ local function GetRoom(frame, now, ignoreFade)
 end
 
 -- How far to raise the text so that it starts at the top of the window: nothing once
--- the text fills the window.
+-- the text fills the window. The third result is true while paused (see GetRoom).
 local function GetLift(frame, now)
-	local room, shown = GetRoom(frame, now)
+	local room, shown, paused = GetRoom(frame, now)
 	if not room then
-		return 0, 0
+		return 0, 0, paused
 	end
-	return math.max(room, 0), shown
+	return math.max(room, 0), shown, false
 end
 
 --[[------------------------------------------------
@@ -210,7 +238,7 @@ local function LimitScroll(frame, state)
 
 	local room = GetRoom(frame, now)
 	local line = frame.visibleLines[1]
-	local minStep = line and line:GetLineHeight() + line:GetSpacing()
+	local minStep = line and GetOneLineStep(line)
 	if not room or not minStep or minStep <= 0 then
 		return
 	end
@@ -391,17 +419,18 @@ local function OnDisplayRefreshed(frame)
 	state.head = frame:GetScrollOffset() == 0 and (newest or EMPTY) or nil
 	local headChanged = state.head ~= previousHead
 
-	-- New lines, and the room they take up.
+	-- New lines, and the room they take up (nil if it cannot be known: no slide then).
 	local now = GetTime()
 	local animation = GetAnimation()
 	local count, distance = 0, 0
 	if animation and previousHead and newest and state.head and now - newest.timestamp <= MAX_MESSAGE_AGE then
 		count = CountNewLines(lines, previousHead)
 		for i = 1, count do
-			local step = GetLineStep(lines[i])
+			-- A secret message (received in an instance) slides by one line of text:
+			-- exact for a one-line message; the extra lines of a wrapped one jump.
+			local step = GetLineStep(lines[i]) or GetOneLineStep(lines[i])
 			if not step then
-				-- Show such a message plainly.
-				count, distance = 0, 0
+				distance = nil
 				break
 			end
 			distance = distance + step
@@ -409,17 +438,18 @@ local function OnDisplayRefreshed(frame)
 	end
 
 	local oldLift = state.lift
-	local lift, shown = GetLift(frame, now)
+	local lift, shown, paused = GetLift(frame, now)
 	state.lift = lift
 
 	-- "shift" is how far the lines now sit from where they should end up.
 	local shift = 0
 	if count > 0 then
-		if animation.slide then
+		if animation.slide and distance then
 			shift = distance
 			-- Older text is still showing: it only has to move as far as the new
-			-- lines do not fit into the empty room below it.
-			if shown > count then
+			-- lines do not fit into the empty room below it. Paused: the older text
+			-- moves down from the top to sit on the new lines.
+			if shown > count or paused then
 				shift = shift + lift - oldLift
 			end
 		end

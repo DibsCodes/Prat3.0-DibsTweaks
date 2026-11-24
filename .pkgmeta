@@ -4,3 +4,4 @@ ignore:
   - NOTES.md
   - README.md
   - media
+  - tests
